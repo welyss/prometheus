@@ -23,6 +23,6 @@ func main() {
 		collectors.NewSQLCollector(),
 	)
 
-	http.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{}))
+	http.Handle("/hbec/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{}))
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
