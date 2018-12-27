@@ -36,7 +36,7 @@ func init() {
 
 func NewSQLCollector() *sqlCollector {
 	return &sqlCollector{
-		prometheus.NewDesc("mysqlsleepconn", "count sleep connections", []string{"dbinstance", "id", "user", "host", "db", "command", "state"}, nil),
+		prometheus.NewDesc("mysqlconn", "count sleep connections", []string{"dbinstance", "id", "user", "host", "db", "command", "state"}, nil),
 	}
 }
 
