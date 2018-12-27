@@ -36,7 +36,7 @@ func init() {
 
 func NewSQLCollector() *sqlCollector {
 	return &sqlCollector{
-		prometheus.NewDesc("mysqlsleepconn", "count sleep connections", []string{"dbinstance", "host"}, nil),
+		prometheus.NewDesc("mysqlsleepconn", "count sleep connections", []string{"dbinstance", "id", "user", "host", "db", "command", "state"}, nil),
 	}
 }
 
@@ -48,47 +48,31 @@ func (c *sqlCollector) Describe(ch chan<- *prometheus.Desc) {
 // Collect returns the current state of all metrics of the collector.
 func (c *sqlCollector) Collect(ch chan<- prometheus.Metric) {
 	//	ch <- prometheus.MustNewConstMetric(c.sqlDesc, prometheus.GaugeValue, float64(2222), "192.168.1.2", "acdb")
-	for dbinstance, val := range getMysqlSleepProcess() {
-		for host, count := range val {
-			ch <- prometheus.MustNewConstMetric(c.sqlDesc, prometheus.GaugeValue, count, dbinstance, host)
-		}
-	}
-}
-
-func getMysqlSleepProcess() map[string]map[string]float64 {
-	result := make(map[string]map[string]float64)
-	for k, v := range dbsForSleep {
+	for dbinstance, v := range dbsForSleep {
 		rows, err := v.Query("show processlist")
 		if err != nil {
 			log.Println(err)
 		} else {
 			defer rows.Close()
-			instanceInfo := make(map[string]float64)
 			for rows.Next() {
 				var id, user, host, db, command, time, state, info sql.NullString
 				if err := rows.Scan(&id, &user, &host, &db, &command, &time, &state, &info); err == nil {
-					if command.Valid && command.String == "Sleep" {
-						sindex := strings.LastIndex(host.String, ":")
-						var hostWithoutPort string
-						if sindex > 0 {
-							hostWithoutPort = host.String[0:sindex]
-						} else {
-							hostWithoutPort = host.String
-						}
-						if v, ok := instanceInfo[hostWithoutPort]; ok {
-							instanceInfo[hostWithoutPort] = v + 1
-						} else {
-							instanceInfo[hostWithoutPort] = 1
-						}
+					sindex := strings.LastIndex(host.String, ":")
+					var hostWithoutPort string
+					if sindex > 0 {
+						hostWithoutPort = host.String[0:sindex]
+					} else {
+						hostWithoutPort = host.String
 					}
+					timeInt, _ := strconv.Atoi(time.String)
+					ch <- prometheus.MustNewConstMetric(c.sqlDesc, prometheus.GaugeValue, float64(timeInt),
+						 dbinstance, id.String, user.String, hostWithoutPort, db.String, command.String, state.String)
 				} else {
 					fmt.Println(err)
 				}
 			}
-			result[k] = instanceInfo
 		}
 	}
-	return result
 }
 
 func autoDiscoverDbs() {
