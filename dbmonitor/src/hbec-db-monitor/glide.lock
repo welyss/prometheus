@@ -1,5 +1,5 @@
-hash: 589ef67aceef93b8a5767dd2c92905842f5b67eb0cc8e5b3585165271863b381
-updated: 2018-12-25T17:17:12.3026732+08:00
+hash: 834a612fa55e34c90bc1e75bce912668ff43f564dd2acff5f7ab4dbb00a5ce26
+updated: 2019-01-02T17:07:55.964977+08:00
 imports:
 - name: github.com/beorn7/perks
   version: 3a771d992973f24aa725d07868b467d1ddfceafb
@@ -12,7 +12,7 @@ imports:
   subpackages:
   - proto
 - name: github.com/matttproud/golang_protobuf_extensions
-  version: c12348ce28de40eed0136aa2b644d0ee0650e56c
+  version: c182affec369e30f25d3eb8cd8a478dee585ae7d
   subpackages:
   - pbutil
 - name: github.com/prometheus/client_golang
@@ -37,4 +37,6 @@ imports:
   - internal/util
   - nfs
   - xfs
+- name: gopkg.in/yaml.v2
+  version: 51d6538a90f86fe93ac480b35f37b2be17fef232
 testImports: []

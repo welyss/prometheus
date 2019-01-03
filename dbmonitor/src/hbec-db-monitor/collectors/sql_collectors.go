@@ -5,6 +5,8 @@ import (
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/prometheus/client_golang/prometheus"
+	"gopkg.in/yaml.v2"
+	"io/ioutil"
 	"log"
 	"os"
 	"strconv"
@@ -13,25 +15,44 @@ import (
 )
 
 const (
-	ENV_AUTO_DISCOVER_DATABASE_INTERVAL = "AUTO_DISCOVER_DATABASE_INTERVAL"
-	ENV_DATABASES_FOR_SLEEP             = "DATABASES_FOR_SLEEP"
-	ENV_DATABASE_DRIVER                 = "mysql"
+	ENV_DATABASE_DRIVER              = "mysql"
+	ENV_DBMONITOR_CONFIGURATION_PATH = "DBMONITOR_CONFIGURATION"
 )
 
 var (
-	dbsForSleep              = make(map[string]*sql.DB)
-	autoDiscoverInterval int = 10
+	dbs              = make(map[string]*sql.DB)
+	yamlPath                 = os.Getenv(ENV_DBMONITOR_CONFIGURATION_PATH)
+	conf                     = new(Configuration)
 )
 
 type sqlCollector struct {
 	sqlDesc *prometheus.Desc
 }
 
+type Configuration struct {
+	AutoDiscoverInterval int `yaml:"autoDiscoverInterval"`
+	Datasource           struct {
+		Mysql []struct {
+			Instance string
+			Schema                   string
+			Host                     string
+			Port                     string
+			User                     string
+			Password                 string
+			Protocol                 string
+			MaxIdleConns             int `yaml:"maxIdleConns"`
+			MaxOpenConns             int `yaml:"maxOpenConns"`
+			ConnMaxLifeTimeInSeconds int `yaml:"connMaxLifeTimeInSeconds"`
+		} `yaml:"mysql"`
+	} `yaml:"datasource"`
+}
+
 func init() {
-	if autoDDI := os.Getenv(ENV_AUTO_DISCOVER_DATABASE_INTERVAL); autoDDI != "" {
-		autoDiscoverInterval, _ = strconv.Atoi(autoDDI)
+	log.SetOutput(os.Stdout)
+	if yamlPath == "" {
+		yamlPath = "/dbmonitor/conf.yaml"
 	}
-	go autoDiscoverDbs()
+	autoDiscoverDbs()
 }
 
 func NewSQLCollector() *sqlCollector {
@@ -48,7 +69,7 @@ func (c *sqlCollector) Describe(ch chan<- *prometheus.Desc) {
 // Collect returns the current state of all metrics of the collector.
 func (c *sqlCollector) Collect(ch chan<- prometheus.Metric) {
 	//	ch <- prometheus.MustNewConstMetric(c.sqlDesc, prometheus.GaugeValue, float64(2222), "192.168.1.2", "acdb")
-	for dbinstance, v := range dbsForSleep {
+	for dbinstance, v := range dbs {
 		rows, err := v.Query("show processlist")
 		if err != nil {
 			log.Println(err)
@@ -66,7 +87,7 @@ func (c *sqlCollector) Collect(ch chan<- prometheus.Metric) {
 					}
 					timeInt, _ := strconv.Atoi(time.String)
 					ch <- prometheus.MustNewConstMetric(c.sqlDesc, prometheus.GaugeValue, float64(timeInt),
-						 dbinstance, id.String, user.String, hostWithoutPort, db.String, command.String, state.String)
+						dbinstance, id.String, user.String, hostWithoutPort, db.String, command.String, state.String)
 				} else {
 					fmt.Println(err)
 				}
@@ -76,47 +97,32 @@ func (c *sqlCollector) Collect(ch chan<- prometheus.Metric) {
 }
 
 func autoDiscoverDbs() {
-	if dbsEnv := os.Getenv(ENV_DATABASES_FOR_SLEEP); dbsEnv != "" {
-		for _, db := range strings.Split(dbsEnv, ",") {
-			if _, ok := dbsForSleep[db]; !ok {
-				// add db
-				dbstr := strings.ToUpper(db)
-				dbHost := os.Getenv("HBEC_DBINSTANCE_" + dbstr + "_HOST")
-				dbUser := os.Getenv("HBEC_DBINSTANCE_" + dbstr + "_USER")
-				dbPass := os.Getenv("HBEC_DBINSTANCE_" + dbstr + "_PASSWORD")
-				if dbHost != "" && dbUser != "" {
-					dbProtocol := os.Getenv("HBEC_DBINSTANCE_" + dbstr + "_PROTOCOL")
-					if dbProtocol == "" {
-						dbProtocol = "tcp"
-					}
-					dbPort := os.Getenv("HBEC_DBINSTANCE_" + dbstr + "_PORT")
-					if dbPort == "" {
-						dbPort = "3306"
-					}
-					dbName := os.Getenv("HBEC_DBINSTANCE_" + dbstr + "_DBNAME")
-					dsn := dbUser + ":" + dbPass + "@" + dbProtocol + "(" + dbHost + ":" + dbPort + ")/" + dbName
-					if datasource, err := sql.Open(ENV_DATABASE_DRIVER, dsn); err == nil {
-						maxIdleConns := os.Getenv("HBEC_DBINSTANCE_" + dbstr + "_MAXIDLECONNS")
-						if maxIdleConns != "" {
-							ai, _ := strconv.Atoi(maxIdleConns)
-							datasource.SetMaxIdleConns(ai)
-						} else {
-							datasource.SetMaxIdleConns(1)
-						}
-						maxOpenConns := os.Getenv("HBEC_DBINSTANCE_" + dbstr + "_MAXOPENCONNS")
-						if maxOpenConns != "" {
-							ai, _ := strconv.Atoi(maxOpenConns)
-							datasource.SetMaxOpenConns(ai)
-						} else {
-							datasource.SetMaxOpenConns(10)
-						}
-						connMaxLifetime := os.Getenv("HBEC_DBINSTANCE_" + dbstr + "_CONNMAXLIFETIME")
-						if connMaxLifetime != "" {
-							ai, _ := strconv.Atoi(connMaxLifetime)
-							datasource.SetConnMaxLifetime(time.Duration(ai))
-						}
-						dbsForSleep[db] = datasource
-					}
+	if data, err := ioutil.ReadFile(yamlPath); err != nil {
+		log.Fatalf("error: %v", err)
+	} else {
+		if err = yaml.Unmarshal(data, &conf); err != nil {
+			log.Fatalf("error: %v", err)
+		}
+	}
+	log.Printf("AutoDiscoverInterval: %d\n", conf.AutoDiscoverInterval)
+	for _, ds := range conf.Datasource.Mysql {
+		if _, ok := dbs[ds.Instance]; !ok {
+			// add db
+			if ds.Host != "" && ds.User != "" {
+				if ds.Protocol == "" {
+					ds.Protocol = "tcp"
+				}
+				if ds.Port == "" {
+					ds.Port = "3306"
+				}
+				dsn := ds.User + ":" + ds.Password + "@" + ds.Protocol + "(" + ds.Host + ":" + ds.Port + ")/" + ds.Schema
+				if datasource, err := sql.Open(ENV_DATABASE_DRIVER, dsn); err == nil {
+					datasource.SetMaxIdleConns(ds.MaxIdleConns)
+					datasource.SetMaxOpenConns(ds.MaxOpenConns)
+					datasource.SetConnMaxLifetime(time.Second * time.Duration(ds.ConnMaxLifeTimeInSeconds))
+					dbs[ds.Instance] = datasource
+					log.Printf("Instance: %v(MaxIdleConns:%v, MaxOpenConns:%v, ConnMaxLifeTimeInSeconds:%v) has been loaded.\n",
+						ds.Instance, ds.MaxIdleConns, ds.MaxOpenConns, ds.ConnMaxLifeTimeInSeconds)
 				}
 			}
 		}
