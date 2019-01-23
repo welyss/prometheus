@@ -21,6 +21,7 @@ func main() {
 	// Add the standard process and Go metrics to the custom registry.
 	reg.MustRegister(
 		collectors.NewSQLCollector(),
+		collectors.NewSyncCollector(),
 	)
 
 	http.Handle("/hbec/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{}))

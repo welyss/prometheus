@@ -1,5 +1,5 @@
-hash: 834a612fa55e34c90bc1e75bce912668ff43f564dd2acff5f7ab4dbb00a5ce26
-updated: 2019-01-02T17:07:55.964977+08:00
+hash: 6511990dd4880e733439eb8513605096a823cf6f83991697391bf23aaea82861
+updated: 2019-01-23T12:20:45.3759492+08:00
 imports:
 - name: github.com/beorn7/perks
   version: 3a771d992973f24aa725d07868b467d1ddfceafb
@@ -8,7 +8,7 @@ imports:
 - name: github.com/go-sql-driver/mysql
   version: 72cd26f257d44c1114970e19afddcd812016007e
 - name: github.com/golang/protobuf
-  version: 1d3f30b51784bec5aad268e59fd3c2fc1c2fe73f
+  version: 347cf4a86c1cb8d262994d8ef5924d4576c5b331
   subpackages:
   - proto
 - name: github.com/matttproud/golang_protobuf_extensions
@@ -22,21 +22,25 @@ imports:
   - prometheus/internal
   - prometheus/promhttp
 - name: github.com/prometheus/client_model
-  version: 5c3871d89910bfb32f5fcab2aa4b9ec68e65a99f
+  version: 56726106282f1985ea77d5305743db7231b0c0a8
   subpackages:
   - go
 - name: github.com/prometheus/common
-  version: 67670fe90761d7ff18ec1d640135e53b9198328f
+  version: 2998b132700a7d019ff618c06a234b47c1f3f681
   subpackages:
   - expfmt
   - internal/bitbucket.org/ww/goautoneg
   - model
 - name: github.com/prometheus/procfs
-  version: 1dc9a6cbc91aacc3e8b2d63db4d2e957a5394ac4
+  version: bf6a532e95b1f7a62adf0ab5050a5bb2237ad2f4
   subpackages:
   - internal/util
   - nfs
   - xfs
+- name: github.com/tidwall/gjson
+  version: 5a96cfda705e1762dc0671e26b0b78925ad97e29
+- name: github.com/tidwall/match
+  version: 33827db735fff6510490d69a8622612558a557ed
 - name: gopkg.in/yaml.v2
   version: 51d6538a90f86fe93ac480b35f37b2be17fef232
 testImports: []

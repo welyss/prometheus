@@ -5,53 +5,28 @@ import (
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/prometheus/client_golang/prometheus"
-	"gopkg.in/yaml.v2"
-	"io/ioutil"
 	"log"
 	"os"
 	"strconv"
 	"strings"
 	"time"
+	"hbec-db-monitor/configuration"
 )
 
 const (
 	ENV_DATABASE_DRIVER              = "mysql"
-	ENV_DBMONITOR_CONFIGURATION_PATH = "DBMONITOR_CONFIGURATION"
 )
 
 var (
 	dbs              = make(map[string]*sql.DB)
-	yamlPath                 = os.Getenv(ENV_DBMONITOR_CONFIGURATION_PATH)
-	conf                     = new(Configuration)
 )
 
 type sqlCollector struct {
 	sqlDesc *prometheus.Desc
 }
 
-type Configuration struct {
-	AutoDiscoverInterval int `yaml:"autoDiscoverInterval"`
-	Datasource           struct {
-		Mysql []struct {
-			Instance string
-			Schema                   string
-			Host                     string
-			Port                     string
-			User                     string
-			Password                 string
-			Protocol                 string
-			MaxIdleConns             int `yaml:"maxIdleConns"`
-			MaxOpenConns             int `yaml:"maxOpenConns"`
-			ConnMaxLifeTimeInSeconds int `yaml:"connMaxLifeTimeInSeconds"`
-		} `yaml:"mysql"`
-	} `yaml:"datasource"`
-}
-
 func init() {
 	log.SetOutput(os.Stdout)
-	if yamlPath == "" {
-		yamlPath = "/dbmonitor/conf.yaml"
-	}
 	autoDiscoverDbs()
 }
 
@@ -97,13 +72,7 @@ func (c *sqlCollector) Collect(ch chan<- prometheus.Metric) {
 }
 
 func autoDiscoverDbs() {
-	if data, err := ioutil.ReadFile(yamlPath); err != nil {
-		log.Fatalf("error: %v", err)
-	} else {
-		if err = yaml.Unmarshal(data, &conf); err != nil {
-			log.Fatalf("error: %v", err)
-		}
-	}
+	conf := configuration.GetConf()
 	log.Printf("AutoDiscoverInterval: %d\n", conf.AutoDiscoverInterval)
 	for _, ds := range conf.Datasource.Mysql {
 		if _, ok := dbs[ds.Instance]; !ok {
